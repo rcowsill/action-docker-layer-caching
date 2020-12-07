@@ -18,7 +18,7 @@ class LayerCache {
   enabledParallel = true
   concurrency: number = 4
 
-  static ERROR_CACHE_ALREAD_EXISTS_STR = `Cache already exists`
+  static ERROR_CACHE_ALREAD_EXISTS_STR = `Unable to reserve cache with key`
   static ERROR_LAYER_CACHE_NOT_FOUND_STR = `Layer cache not found`
 
   constructor(ids: string[]) {
@@ -97,6 +97,14 @@ class LayerCache {
     const moveLayer = async (layer: string) => {
       const from = path.resolve(`${fromDir}/${layer}`)
       const to = path.resolve(`${toDir}/${layer}`)
+
+      const sourceStat = await fs.lstat(from)
+      if (sourceStat.isSymbolicLink())
+      {
+         const target = await readlink(path)
+         core.debug(`Layer tar ${from} is symlink`)
+      }
+
       core.debug(`Moving layer tar from ${from} to ${to}`)
       await fs.mkdir(`${path.dirname(to)}`, { recursive: true })
       await fs.rename(from, to)
