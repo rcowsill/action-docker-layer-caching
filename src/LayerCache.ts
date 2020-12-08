@@ -101,13 +101,15 @@ class LayerCache {
       const sourceStat = await fs.lstat(from)
       if (sourceStat.isSymbolicLink())
       {
-         const target = await fs.readlink(from)
-         core.debug(`Layer tar ${from} is symlink to ${target}`)
+        const target = await fs.readlink(from)
+        core.debug(`${layer} is symlink to ${target}, skipping move`)
       }
-
-      core.debug(`Moving layer tar from ${from} to ${to}`)
-      await fs.mkdir(`${path.dirname(to)}`, { recursive: true })
-      await fs.rename(from, to)
+      else
+      {
+        core.debug(`Moving layer tar from ${from} to ${to}`)
+        await fs.mkdir(`${path.dirname(to)}`, { recursive: true })
+        await fs.rename(from, to)
+      }
     }
     await Promise.all(layerTars.map(moveLayer))
   }
@@ -115,7 +117,7 @@ class LayerCache {
   private async storeLayers(): Promise<number[]> {
     const pool = new PromisePool(this.concurrency)
 
-    const result =  Promise.all(
+    const result = Promise.all(
       (await this.getLayerIds()).map(
         layerId => {
           return pool.open(() => this.storeSingleLayerBy(layerId))
@@ -143,6 +145,14 @@ class LayerCache {
 
   private async storeSingleLayerBy(layerId: string): Promise<number> {
     const path = this.genSingleLayerStorePath(layerId)
+
+    try {
+      await fs.access(path)
+    } catch (e) {
+      core.info(`Layer ${path} not present, skipping store.`)
+      return -1
+    }
+
     const key = await this.generateSingleLayerSaveKey(layerId)
 
     core.info(`Start storing layer cache: ${JSON.stringify({ layerId, key })}`)
