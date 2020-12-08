@@ -101,7 +101,7 @@ class LayerCache {
       const sourceStat = await fs.lstat(from)
       if (sourceStat.isSymbolicLink())
       {
-         const target = await fs.readlink(path)
+         const target = await fs.readlink(from)
          core.debug(`Layer tar ${from} is symlink to ${target}`)
       }
 
