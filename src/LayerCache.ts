@@ -219,9 +219,8 @@ class LayerCache {
   }
 
   private async restoreSingleLayerBy(id: string): Promise<void> {
-    const path = this.genSingleLayerStorePath(id)
-
     try {
+      const path = this.genSingleLayerTarPath(id)
       await fs.access(path)
       core.info(`Layer ${path} already present, skipping restore.`)
       return 
@@ -229,6 +228,7 @@ class LayerCache {
       // Let the code below restore the missing file from cache
     }
 
+    const path = this.genSingleLayerStorePath(id)
     const key = await this.recoverSingleLayerKey(id)
     const dir = path.replace(/[^/\\]+$/, ``)
 
@@ -274,6 +274,10 @@ class LayerCache {
 
   genSingleLayerStorePath(id: string) {
     return path.resolve(`${this.getLayerCachesDir()}/${id}/layer.tar`)
+  }
+
+  genSingleLayerTarPath(id: string) {
+    return path.resolve(`${this.getUnpackedTarDir()}/${id}/layer.tar`)
   }
 
   async generateRootHashFromManifest(): Promise<string> {
