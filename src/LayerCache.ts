@@ -226,6 +226,7 @@ class LayerCache {
       core.info(`Layer ${path} already present, skipping restore.`)
       return 
     } catch (e) {
+      core.info(e.message)
       // Let the code below restore the missing file from cache
     }
 
