@@ -222,7 +222,7 @@ class LayerCache {
     try {
       const path = this.genSingleLayerTarPath(id)
       core.debug(`Checking whether layer ${path} exists.`)
-      core.info(await fs.lstat(path))
+      core.info(JSON.stringify(await fs.lstat(path)))
       core.info(`Layer ${path} already present, skipping restore.`)
       return 
     } catch (e) {
