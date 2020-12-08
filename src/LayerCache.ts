@@ -221,6 +221,7 @@ class LayerCache {
   private async restoreSingleLayerBy(id: string): Promise<void> {
     try {
       const path = this.genSingleLayerTarPath(id)
+      core.debug(`Checking whether layer ${path} exists.`)
       await fs.access(path)
       core.info(`Layer ${path} already present, skipping restore.`)
       return 
