@@ -218,8 +218,17 @@ class LayerCache {
     return true
   }
 
-  private async restoreSingleLayerBy(id: string): Promise<string> {
+  private async restoreSingleLayerBy(id: string): Promise<void> {
     const path = this.genSingleLayerStorePath(id)
+
+    try {
+      await fs.access(path)
+      core.info(`Layer ${path} already present, skipping restore.`)
+      return 
+    } catch (e) {
+      // Let the code below restore the missing file from cache
+    }
+
     const key = await this.recoverSingleLayerKey(id)
     const dir = path.replace(/[^/\\]+$/, ``)
 
@@ -231,8 +240,6 @@ class LayerCache {
     if (result == null) {
       throw new Error(`${LayerCache.ERROR_LAYER_CACHE_NOT_FOUND_STR}: ${JSON.stringify({ id })}`)
     }
-
-    return result
   }
 
   private async loadImageFromUnpacked() {
