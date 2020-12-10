@@ -258,5 +258,5 @@ jobs:
 
     steps:
     - name: Warn if not backward compatible
-      if: needs.test_restoring_from_master_release.result == "failure"
+      if: needs.test_restoring_from_master_release.result == 'failure'
       run: echo "::warning::Build is not backward-compatible with master-release version"
