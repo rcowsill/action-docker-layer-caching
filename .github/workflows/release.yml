@@ -175,7 +175,6 @@ jobs:
     needs: [build, test_restoring]
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
-      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -204,7 +203,6 @@ jobs:
     needs: [build, save_with_master_release]
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
-      fail-fast: false
     continue-on-error: true
     runs-on: ${{ matrix.os }}
 
@@ -254,6 +252,11 @@ jobs:
           exit 1
         fi
 
+  report_bc_test_result:
+    needs: save_with_master_release
+    runs-on: ubuntu-latest
+
+    steps:
     - name: Warn if not backward compatible
-      if: failure()
+      if: needs.test_restoring_from_master_release.result == "failure"
       run: echo "::warning::Build is not backward-compatible with master-release version"
