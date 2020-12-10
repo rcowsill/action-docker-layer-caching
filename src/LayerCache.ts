@@ -256,7 +256,7 @@ class LayerCache {
     const rootHash = await this.generateRootHashFromManifest()
     const formatted = await this.getFormattedSaveKey(rootHash)
     core.debug(JSON.stringify({ log: `generateRootSaveKey`, rootHash, formatted }))
-    return `${formatted}-toot`
+    return `${formatted}-root`
   }
 
   async generateSingleLayerSaveKey(id: string) {
@@ -280,7 +280,7 @@ class LayerCache {
     const hash = await this.generateRootHashFromManifest()
     core.debug(JSON.stringify({ log: `recoverUnformattedSaveKey`, hash}))
 
-    return this.restoredRootKey.replace(hash, `{hash}`).replace(/-toot$/, ``)
+    return this.restoredRootKey.replace(hash, `{hash}`).replace(/-root$/, ``)
   }
 
   async getLayerTarFiles(): Promise<string[]> {
