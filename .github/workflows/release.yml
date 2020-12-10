@@ -170,7 +170,7 @@ jobs:
 
   save_with_master_release:
     if: github.event_name != 'delete'
-    needs: build
+    needs: [build, test_restoring]
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
