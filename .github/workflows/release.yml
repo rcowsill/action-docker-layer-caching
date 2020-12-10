@@ -251,7 +251,3 @@ jobs:
           echo cached != latest
           exit 1
         fi
-
-    - name: Warn if not backward compatible
-      if: failure()
-      run: echo "::warning::Build is not backward-compatible with master-release version"
