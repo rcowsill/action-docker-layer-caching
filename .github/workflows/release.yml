@@ -96,6 +96,7 @@ jobs:
     needs: build
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -120,6 +121,7 @@ jobs:
     needs: [build, test_saving]
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -173,6 +175,7 @@ jobs:
     needs: [build, test_restoring]
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -201,6 +204,7 @@ jobs:
     needs: [build, save_with_master_release]
     strategy:
       matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+      fail-fast: false
     runs-on: ${{ matrix.os }}
 
     steps:
