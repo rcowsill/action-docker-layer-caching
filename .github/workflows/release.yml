@@ -253,7 +253,7 @@ jobs:
         fi
 
   report_bc_test_result:
-    needs: save_with_master_release
+    needs: test_restoring_from_master_release
     runs-on: ubuntu-latest
 
     steps:
