@@ -252,11 +252,6 @@ jobs:
           exit 1
         fi
 
-  report_bc_test_result:
-    needs: test_restoring_from_master_release
-    runs-on: ubuntu-latest
-
-    steps:
     - name: Warn if not backward compatible
-      if: needs.test_restoring_from_master_release.result == 'failure'
+      if: failure()
       run: echo "::warning::Build is not backward-compatible with master-release version"
