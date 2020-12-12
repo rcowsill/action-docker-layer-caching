@@ -44,7 +44,9 @@ class LayerCache {
       return false
     }
 
-    await Promise.all(this.enabledParallel ? await this.storeLayers() : [])
+    if (this.enabledParallel) {
+      await this.storeLayers()
+    }
     return true
   }
 
@@ -106,15 +108,10 @@ class LayerCache {
 
   private async storeLayers(): Promise<number[]> {
     const pool = new PromisePool(this.concurrency)
+    const layerIds = await this.getLayerIds()
+    const promises = layerIds.map(layerId => pool.open((() => this.storeSingleLayerBy(layerId))))
 
-    const result =  Promise.all(
-      (await this.getLayerIds()).map(
-        layerId => {
-          return pool.open(() => this.storeSingleLayerBy(layerId))
-        }
-      )
-    )
-    return result
+    return Promise.all(promises)
   }
 
   static async dismissError<T>(promise: Promise<T>, dismissStr: string, defaultResult: T): Promise<T> {
