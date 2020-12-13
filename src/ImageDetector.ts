@@ -24,7 +24,7 @@ export class ImageDetector {
         if (image.Tag !== "<none>") {
           return `${image.Repository}:${image.Tag}`
         } else if (image.Digest !== "<none>"){
-          return `${image.Repository}:${image.Digest}`
+          return `${image.Repository}@${image.Digest}`
         }
       }
       return image.ID
