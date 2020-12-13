@@ -4,9 +4,9 @@ import { assertType } from 'typescript-is'
 
 interface Image {
   ID: string
-  Repository: string | null
-  Tag: string | null
-  Digest: string | null
+  Repository: string
+  Tag: string
+  Digest: string
 }
 
 function assertImage(x: unknown): asserts x is Image {
@@ -20,10 +20,10 @@ export class ImageDetector {
       core.debug(imageEntry)
       const image: Image = JSON.parse(imageEntry)
       assertImage(image)
-      if (image.Repository) {
-        if (image.Tag) {
+      if (image.Repository !== "<none>") {
+        if (image.Tag !== "<none>") {
           return `${image.Repository}:${image.Tag}`
-        } else {
+        } else if (image.Digest !== "<none>"){
           return `${image.Repository}:${image.Digest}`
         }
       }
