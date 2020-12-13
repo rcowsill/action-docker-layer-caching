@@ -1,15 +1,35 @@
 import * as exec from 'actions-exec-listener'
 import * as core from '@actions/core'
+import { assertType } from 'typescript-is' 
+
+interface Image {
+  ID: string
+  Repository: string | null
+  Tag: string | null
+  Digest: string | null
+}
+
+function assertImage(x: unknown): asserts x is Image {
+  assertType<Image>(x)
+}
 
 export class ImageDetector {
   async getExistingImages(): Promise<string[]> {
-    const existingSet = new Set<string>([])
-    const ids = (await exec.exec(`docker image ls -q`, [], { silent: true, listeners: { stderr: console.warn }})).stdoutStr.split(`\n`).filter(id => id !== ``)
-    const repotags = (await exec.exec(`docker`, `image ls --format {{.Repository}}:{{.Tag}} --filter dangling=false`.split(' '), { silent: true, listeners: { stderr: console.warn }})).stdoutStr.split(`\n`).filter(id => id !== ``);
-    core.debug(JSON.stringify({ log: "getExistingImages", ids, repotags }));
-    ([...ids, ...repotags]).forEach(image => existingSet.add(image))
-    core.debug(JSON.stringify({ existingSet }))
-    return Array.from(existingSet)
+    const images = (await exec.exec(`docker`, [`images`, `--digests`, `--format='{{json .}}'`], { silent: true, listeners: { stderr: console.warn }})).stdoutStr.split(`\n`)
+    const ids = images.map((imageEntry) => {
+      const image: Image = JSON.parse(imageEntry)
+      assertImage(image)
+      if (image.Repository) {
+        if (image.Tag) {
+          return `${image.Repository}:${image.Tag}`
+        } else {
+          return `${image.Repository}:${image.Digest}`
+        }
+      }
+      return image.ID
+    })
+    core.debug(JSON.stringify({ log: "getExistingImages", ids }))
+    return ids
   }
 
   async getImagesShouldSave(alreadRegisteredImages: string[]): Promise<string[]> {
