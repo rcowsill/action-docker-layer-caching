@@ -214,11 +214,11 @@ jobs:
     - name: Show cached image info
       run: |
         docker images --digests
-        docker image inspect alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
+        docker inspect alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438 || true
 
     - run: docker pull alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
 
     - name: Show built image info
       run: |
         docker images --digests
-        docker image inspect alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
+        docker inspect alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
