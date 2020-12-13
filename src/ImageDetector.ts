@@ -15,7 +15,7 @@ function assertImage(x: unknown): asserts x is Image {
 
 export class ImageDetector {
   async getExistingImages(): Promise<string[]> {
-    const images = (await exec.exec(`docker`, [`images`, `--digests`, `--format='{{json .}}'`], { silent: true, listeners: { stderr: console.warn }})).stdoutStr.split(`\n`)
+    const images = (await exec.exec(`docker`, [`images`, `--digests`, `--format={{json .}}`], { silent: true, listeners: { stderr: console.warn }})).stdoutStr.split(`\n`)
     const ids = images.map((imageEntry) => {
       core.debug(imageEntry)
       const image: Image = JSON.parse(imageEntry)
