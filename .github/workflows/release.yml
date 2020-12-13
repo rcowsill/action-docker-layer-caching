@@ -167,3 +167,58 @@ jobs:
           echo cached != latest
           exit 1
         fi
+
+  test_saving_digest:
+    if: github.event_name != 'delete'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download action
+      uses: actions/download-artifact@v2
+      with:
+        name: built
+        path: action-dlc
+
+    - uses: ./action-dlc
+      name: Run satackey/action-docker-layer-caching@${{ needs.build.outputs.matrix.branch }}
+      with:
+        key: docker-layer-caching-${{ matrix.os }}-digest-sha:${{ github.sha }}-{hash}
+
+    - run: |
+        docker pull alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
+        docker images --digests
+
+  test_restoring_digest:
+    needs: [build, test_saving_digest]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download action
+      uses: actions/download-artifact@v2
+      with:
+        name: built
+        path: action-dlc
+
+    - uses: ./action-dlc
+      name: Run satackey/action-docker-layer-caching@${{ needs.build.outputs.matrix.branch }}
+      with:
+        key: never-restored-docker-layer-caching-${{ matrix.os }}-digest-sha:${{ github.sha }}-{hash}
+        restore-keys: docker-layer-caching-${{ matrix.os }}-digest-sha:${{ github.sha }}-
+        skip-save: 'true'
+
+    - name: Show cached image info
+      run: |
+        docker images --digests
+        docker image inspect alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
+
+    - run: docker pull alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
+
+    - name: Show built image info
+      run: |
+        docker images --digests
+        docker image inspect alpine@sha256:25f5332d060da2c7ea2c8a85d2eac623bd0b5f97d508b165f846c7d172897438
