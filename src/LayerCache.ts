@@ -55,7 +55,7 @@ class LayerCache {
     core.info(`Listing images.tar`)
     await this.exec(`sh -c`, [`tar -tvf images.tar`], { cwd: this.getSavedImageTarDir() })
     core.info(`Extracting images.tar`)
-    await this.exec(`sh -c`, [`tar -xCf images.tar`], { cwd: this.getSavedImageTarDir() })
+    await this.exec(`sh -c`, [`tar -C . -xf images.tar`], { cwd: this.getSavedImageTarDir() })
     core.info(`Deleting images.tar`)
     await this.exec(`sh -c`, [`rm images.tar`], { cwd: this.getSavedImageTarDir() })
     core.info(`Listing .`)
