@@ -50,9 +50,15 @@ class LayerCache {
 
   private async saveImageAsUnpacked() {
     await fs.mkdir(this.getSavedImageTarDir(), { recursive: true })
+    core.info(`Saving ${JSON.stringify(this.ids)}`)
     await this.exec(`sh -c`, [`docker save -o images.tar '${(await this.makeRepotagsDockerSaveArgReady(this.ids)).join(`' '`)}'`], { cwd: this.getSavedImageTarDir() })
+    core.info(`Listing images.tar`)
     await this.exec(`sh -c`, [`tar -tvf images.tar`], { cwd: this.getSavedImageTarDir() })
-    await this.exec(`sh -c`, [`tar -xCf images.tar && rm images.tar`], { cwd: this.getSavedImageTarDir() })
+    core.info(`Extracting images.tar`)
+    await this.exec(`sh -c`, [`tar -xCf images.tar`], { cwd: this.getSavedImageTarDir() })
+    core.info(`Deleting images.tar`)
+    await this.exec(`sh -c`, [`rm images.tar`], { cwd: this.getSavedImageTarDir() })
+    core.info(`Listing .`)
     await this.exec(`sh -c`, [`ls -lR`], { cwd: this.getSavedImageTarDir() })
   }
 
