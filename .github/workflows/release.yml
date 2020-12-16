@@ -83,7 +83,7 @@ jobs:
             exclude: [
               {
                 inspect_image: 'test_project_scratch',
-                os: 'windows-latest',
+                os: 'ubuntu-latest',
               },
             ],
           }
