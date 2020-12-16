@@ -60,6 +60,8 @@ class LayerCache {
     await this.exec(`sh -c`, [`rm images.tar`], { cwd: this.getUnpackedTarDir() })
     core.info(`Listing .`)
     await this.exec(`sh -c`, [`ls -lR`], { cwd: this.getUnpackedTarDir() })
+    core.info(`Manifests`)
+    await this.exec(`sh -c`, [`cat *.json`], { cwd: this.getUnpackedTarDir() })
   }
 
   private async makeRepotagsDockerSaveArgReady(repotags: string[]): Promise<string[]> {
