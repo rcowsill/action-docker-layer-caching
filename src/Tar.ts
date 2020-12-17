@@ -26,21 +26,49 @@ export function assertImageConfig(x: unknown): asserts x is ImageConfig {
   assertType<ImageConfig>(x)
 }
 
-export async function loadRawManifests(rootPath: string) {
-  return (await fs.readFile(path.join(rootPath, `manifest.json`))).toString()
+export async function loadRawManifests(unpackedTarDir: string) {
+  return (await fs.readFile(path.join(unpackedTarDir, `manifest.json`))).toString()
 }
 
-function convertLayerPaths(manifest: Manifest) {
+function convertManifestPaths(manifest: Manifest) {
   const convertPosixPath = (layerPath: string) => layerPath.split(path.posix.sep).join(path.sep)
   manifest.Layers = manifest.Layers.map(convertPosixPath)
 
   return manifest
 }
 
-export async function loadManifests(path: string) {
-  const raw = await loadRawManifests(path)
-  const manifests = JSON.parse(raw.toString())
-  assertManifests(manifests)
+async function loadImageConfig(configPath: string) {
+  const raw = await fs.readFile(configPath)
+  const parsedConfig = JSON.parse(raw.toString())
+  assertImageConfig(parsedConfig)
+  return parsedConfig
+}
 
-  return manifests.map(convertLayerPaths)
+async function loadImageConfigs(unpackedTarDir: string, manifests: Manifests) {
+  const promises = manifests.map((manifest) => loadImageConfig(path.join(unpackedTarDir, manifest.Config)))
+  return Promise.all(promises)
+}
+
+async function createLayerMap(unpackedTarDir: string, manifests: Manifests) {
+  const configs = await loadImageConfigs(unpackedTarDir, manifests)
+  
+  const layerMap = new Map();
+  configs.forEach((config, i) => {
+    config.rootfs.diff_ids.forEach((id, j) => {
+      const layerTarPaths = layerMap.get(id) ?? []
+      layerTarPaths.push(manifests[i].Layers[j])
+      layerMap.set(id, layerTarPaths)
+    })
+  })
+}
+
+export async function loadManifests(unpackedTarDir: string) {
+  const raw = await loadRawManifests(unpackedTarDir)
+  const parsedManifests = JSON.parse(raw)
+  assertManifests(parsedManifests)
+
+  const manifests = parsedManifests.map(convertManifestPaths)
+  await createLayerMap(unpackedTarDir, manifests)
+
+  return manifests
 }
