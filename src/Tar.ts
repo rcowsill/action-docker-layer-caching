@@ -1,6 +1,7 @@
 import { assertType } from 'typescript-is' 
 import { promises as fs } from 'fs'
 import * as path from 'path'
+import * as core from '@actions/core'
 
 export interface Manifest {
   Config: string
@@ -60,6 +61,7 @@ async function createLayerMap(unpackedTarDir: string, manifests: Manifests) {
       layerMap.set(id, layerTarPaths)
     })
   })
+  core.debug(`${JSON.stringify(layerMap.entries())}`)
 }
 
 export async function loadManifests(unpackedTarDir: string) {
