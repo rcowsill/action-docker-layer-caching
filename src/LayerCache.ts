@@ -281,8 +281,7 @@ class LayerCache {
   }
 
   async getLayerTarFiles(): Promise<string[]> {
-    const convertPosixLayerPaths = (layerPath: string) => layerPath.split(path.posix.sep).join(path.sep)
-    const getTarFilesFromManifest = (manifest: Manifest) => manifest.Layers.map(convertPosixLayerPaths)
+    const getTarFilesFromManifest = (manifest: Manifest) => manifest.Layers
 
     const tarFilesThatMayDuplicate = (await this.getManifests()).flatMap(getTarFilesFromManifest)
     const tarFiles = [...new Set(tarFilesThatMayDuplicate)]
