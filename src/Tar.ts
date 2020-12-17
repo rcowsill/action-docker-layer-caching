@@ -61,7 +61,7 @@ async function createLayerMap(unpackedTarDir: string, manifests: Manifests) {
       layerMap.set(id, layerTarPaths)
     })
   })
-  core.debug(`${JSON.stringify(layerMap.entries())}`)
+  core.debug(`${JSON.stringify([...layerMap.entries()])}`)
 }
 
 export async function loadManifests(unpackedTarDir: string) {
