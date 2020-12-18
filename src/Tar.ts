@@ -53,15 +53,19 @@ async function loadImageConfigs(unpackedTarDir: string, manifests: Manifests) {
 async function createLayerMap(unpackedTarDir: string, manifests: Manifests) {
   const configs = await loadImageConfigs(unpackedTarDir, manifests)
   
-  const layerMap = new Map();
+  const layerMap = new Map()
   configs.forEach((config, i) => {
     config.rootfs.diff_ids.forEach((id, j) => {
-      const layerTarPaths = layerMap.get(id) ?? []
-      layerTarPaths.push(manifests[i].Layers[j])
-      layerMap.set(id, layerTarPaths)
+      if (!layerMap.has(id)) {
+        layerMap.set(id, new Set())
+      }
+      layerMap.get(id).add(manifests[i].Layers[j])
     })
   })
-  core.debug(`${JSON.stringify([...layerMap.entries()])}`)
+
+  layerMap.forEach((paths, id) => {
+    core.debug(`${JSON.stringify([id, [...paths]])}`)
+  })
 }
 
 export async function loadManifests(unpackedTarDir: string) {
