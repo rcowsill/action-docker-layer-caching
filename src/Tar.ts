@@ -85,7 +85,8 @@ export async function loadLayerMap(unpackedTarDir: string): Promise<LayerMap> {
 
   const layerMap = new Map()
   configs.forEach((config, i) => {
-    config.rootfs.diff_ids.forEach((id, j) => {
+    config.rootfs.diff_ids.forEach((diffId, j) => {
+      const id = diffId.replace(":", path.sep)
       if (!layerMap.has(id)) {
         layerMap.set(id, new Set())
       }
