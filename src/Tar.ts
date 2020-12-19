@@ -58,7 +58,7 @@ function convertManifestPaths(manifest: Manifest) {
 
 async function loadImageConfig(configPath: string) {
   const raw = await fs.readFile(configPath)
-  const parsedConfig = JSON.parse(raw.toString())
+  const parsedConfig = JSON.parse(raw.toString().replace(`"rootfS":{`, `"rootfs":{`))
   assertImageConfig(parsedConfig)
   return parsedConfig
 }
