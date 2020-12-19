@@ -1,12 +1,10 @@
 import * as path from 'path'
 import * as exec from 'actions-exec-listener'
-import crypto from 'crypto'
 import * as core from '@actions/core'
 import * as cache from '@actions/cache'
 import { ExecOptions } from '@actions/exec/lib/interfaces'
 import { promises as fs } from 'fs'
-import recursiveReaddir from 'recursive-readdir'
-import { Manifest, loadManifests, loadRawManifests } from './Tar'
+import { Layer, LayerMap, loadLayerMap, getManifestHash } from './Tar'
 import format from 'string-format'
 import PromisePool from 'native-promise-pool'
 
@@ -35,8 +33,13 @@ class LayerCache {
     this.unformattedSaveKey = key
 
     await this.saveImageAsUnpacked()
+
+    const layerMap = await loadLayerMap(this.getUnpackedTarDir())
     if (this.enabledParallel) {
-      await this.separateAllLayerCaches()
+      await this.separateAllLayerCaches(layerMap)
+
+      core.info(`Listing .`)
+      await this.exec(`sh -c`, [`ls -lR`], { cwd: this.getUnpackedTarDir() })
     }
 
     if (await this.storeRoot() === undefined) {
@@ -44,20 +47,17 @@ class LayerCache {
       return false
     }
 
-    await Promise.all(this.enabledParallel ? await this.storeLayers() : [])
+    if (this.enabledParallel) {
+      const diffidTarFiles = layerMap.map((layer) => path.join(layer.id, `layer.tar`))
+      await this.storeLayers(diffidTarFiles)
+    }
     return true
   }
 
   private async saveImageAsUnpacked() {
     await fs.mkdir(this.getUnpackedTarDir(), { recursive: true })
     core.info(`Saving ${JSON.stringify(this.ids)}`)
-    await this.exec(`sh -c`, [`docker save -o images.tar '${(await this.makeRepotagsDockerSaveArgReady(this.ids)).join(`' '`)}'`], { cwd: this.getUnpackedTarDir() })
-    core.info(`Listing images.tar`)
-    await this.exec(`sh -c`, [`tar -tvf images.tar`], { cwd: this.getUnpackedTarDir() })
-    core.info(`Extracting images.tar`)
-    await this.exec(`sh -c`, [`tar -C . -xf images.tar`], { cwd: this.getUnpackedTarDir() })
-    core.info(`Deleting images.tar`)
-    await this.exec(`sh -c`, [`rm images.tar`], { cwd: this.getUnpackedTarDir() })
+    await this.exec(`sh -c`, [`docker save '${(await this.makeRepotagsDockerSaveArgReady(this.ids)).join(`' '`)}' | tar xf - -C .`], { cwd: this.getUnpackedTarDir() })
     core.info(`Listing .`)
     await this.exec(`sh -c`, [`ls -lR`], { cwd: this.getUnpackedTarDir() })
     core.info(`Manifests`)
@@ -77,10 +77,6 @@ class LayerCache {
     return historyIds
   }
 
-  private async getManifests() {
-    return loadManifests(this.getUnpackedTarDir())
-  }
-
   private async storeRoot() {
     const rootKey = await this.generateRootSaveKey()
     const paths = [
@@ -92,40 +88,57 @@ class LayerCache {
     return cacheId !== -1 ? cacheId : undefined
   }
 
-  private async separateAllLayerCaches() {
-    await this.moveLayerTarsInDir(this.getUnpackedTarDir(), this.getLayerCachesDir())
-  }
+  private async separateAllLayerCaches(layerMap: LayerMap) {
+    const fromDir = this.getUnpackedTarDir()
+    const toDir = this.getLayerCachesDir()
 
-  private async joinAllLayerCaches() {
-    await this.moveLayerTarsInDir(this.getLayerCachesDir(), this.getUnpackedTarDir())
-  }
-
-  private async moveLayerTarsInDir(fromDir: string, toDir: string) {
-    const layerTars = (await recursiveReaddir(fromDir))
-      .filter(layerPath => path.basename(layerPath) === `layer.tar`)
-      .map(layerPath => path.relative(fromDir, layerPath))
-
-    const moveLayer = async (layer: string) => {
-      const from = path.join(fromDir, layer)
-      const to = path.join(toDir, layer)
+    const moveLayer = async (layer: Layer) => {
+      const fromPaths = layer.paths.map((layerPath) => path.join(fromDir, layerPath))
+      const from = await fs.realpath(fromPaths[0])
+      const to = path.join(toDir, layer.id, `layer.tar`)
       core.debug(`Moving layer tar from ${from} to ${to}`)
+
       await fs.mkdir(path.dirname(to), { recursive: true })
       await fs.rename(from, to)
+
+      const deleteDuplicateLayer = async (layerPath: string) => {
+        core.debug(`Deleting duplicate layer tar from ${layerPath}`)
+        return fs.unlink(layerPath)
+      }
+      return Promise.all(fromPaths.slice(1).map(deleteDuplicateLayer))
     }
-    await Promise.all(layerTars.map(moveLayer))
+
+    await Promise.all(layerMap.map(moveLayer))
   }
 
-  private async storeLayers(): Promise<number[]> {
-    const pool = new PromisePool(this.concurrency)
+  private async joinAllLayerCaches(layerMap: LayerMap) {
+    const fromDir = this.getLayerCachesDir()
+    const toDir = this.getUnpackedTarDir()
 
-    const result =  Promise.all(
-      (await this.getLayerIds()).map(
-        layerId => {
-          return pool.open(() => this.storeSingleLayerBy(layerId))
-        }
-      )
-    )
-    return result
+    const moveLayer = async (layer: Layer) => {
+      const from = path.join(fromDir, layer.id, `layer.tar`)
+      const toPaths = layer.paths.map((layerPath) => path.join(toDir, layerPath))
+      const to = toPaths[0]
+      core.debug(`Moving layer tar from ${from} to ${to}`)
+
+      await fs.mkdir(path.dirname(to), { recursive: true })
+      await fs.rename(from, to)
+
+      const cloneLayer = async (layerPath: string) => {
+        core.debug(`Cloning layer tar from ${to} to ${layerPath}`)
+        return fs.copyFile(to, layerPath)
+      }
+      return Promise.all(toPaths.slice(1).map(cloneLayer))
+    }
+
+    await Promise.all(layerMap.map(moveLayer))
+  }
+
+  private async storeLayers(layerTarFiles: string[]): Promise<number[]> {
+    const pool = new PromisePool(this.concurrency)
+    const promises = layerTarFiles.map(layerTarFile => pool.open((() => this.storeSingleLayer(layerTarFile))))
+
+    return Promise.all(promises)
   }
 
   static async dismissError<T>(promise: Promise<T>, dismissStr: string, defaultResult: T): Promise<T> {
@@ -144,15 +157,16 @@ class LayerCache {
     }
   }
 
-  private async storeSingleLayerBy(layerId: string): Promise<number> {
-    const path = this.genSingleLayerStorePath(layerId)
+  private async storeSingleLayer(layerTarFile: string): Promise<number> {
+    const layerId = this.getIdOfLayerTarFile(layerTarFile)
+    const path = this.genSingleLayerStorePath(layerTarFile)
     const key = await this.generateSingleLayerSaveKey(layerId)
 
     core.info(`Start storing layer cache: ${JSON.stringify({ layerId, key })}`)
     const cacheId = await LayerCache.dismissError(cache.saveCache([path], key), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
     core.info(`Stored layer cache: ${JSON.stringify({ key, cacheId })}`)
 
-    core.debug(JSON.stringify({ log: `storeSingleLayerBy`, layerId, path, key, cacheId}))
+    core.debug(JSON.stringify({ log: `storeSingleLayer`, layerId, path, key, cacheId}))
     return cacheId
   }
 
@@ -165,12 +179,16 @@ class LayerCache {
       return undefined
     }
     if (this.enabledParallel) {
-      const hasRestoredAllLayers = await this.restoreLayers()
+      const layerMap = await loadLayerMap(this.getUnpackedTarDir())
+      const diffidTarFiles = layerMap.map((layer) => path.join(layer.id, `layer.tar`))
+      const hasRestoredAllLayers = await this.restoreLayers(diffidTarFiles)
       if (!hasRestoredAllLayers) {
         core.info(`Some layer cache could not be found. aborting.`)
         return undefined
       }
-      await this.joinAllLayerCaches()
+      await this.joinAllLayerCaches(layerMap)
+      core.info(`Listing .`)
+      await this.exec(`sh -c`, [`ls -lR`], { cwd: this.getUnpackedTarDir() })
     }
     await this.loadImageFromUnpacked()
     return restoredCacheKey
@@ -184,15 +202,15 @@ class LayerCache {
       return undefined
     }
     this.restoredRootKey = restoredRootKey
+    core.info(`Listing .`)
+    await this.exec(`sh -c`, [`ls -lR`], { cwd: this.getUnpackedTarDir() })
 
     return restoredRootKey
   }
 
-  private async restoreLayers(): Promise<boolean> {
+  private async restoreLayers(layerTarFiles: string[]): Promise<boolean> {
     const pool = new PromisePool(this.concurrency)
-    const tasks = (await this.getLayerIds()).map(
-      layerId => pool.open(() => this.restoreSingleLayerBy(layerId))
-    )
+    const tasks = layerTarFiles.map(layerTarFile => pool.open(() => this.restoreSingleLayer(layerTarFile)))
 
     try {
       await Promise.all(tasks)
@@ -211,18 +229,19 @@ class LayerCache {
     return true
   }
 
-  private async restoreSingleLayerBy(id: string): Promise<string> {
-    const layerPath = this.genSingleLayerStorePath(id)
-    const key = await this.recoverSingleLayerKey(id)
+  private async restoreSingleLayer(layerTarFile: string): Promise<string> {
+    const layerId = this.getIdOfLayerTarFile(layerTarFile)
+    const layerPath = this.genSingleLayerStorePath(layerTarFile)
+    const key = await this.recoverSingleLayerKey(layerId)
     const dir = path.dirname(layerPath)
 
-    core.debug(JSON.stringify({ log: `restoreSingleLayerBy`, id, layerPath, dir, key }))
+    core.debug(JSON.stringify({ log: `restoreSingleLayer`, layerId, layerPath, dir, key }))
 
     await fs.mkdir(dir, { recursive: true })
     const result = await cache.restoreCache([layerPath], key)
 
     if (result == null) {
-      throw new Error(`${LayerCache.ERROR_LAYER_CACHE_NOT_FOUND_STR}: ${JSON.stringify({ id })}`)
+      throw new Error(`${LayerCache.ERROR_LAYER_CACHE_NOT_FOUND_STR}: ${JSON.stringify({ layerId })}`)
     }
 
     return result
@@ -254,13 +273,12 @@ class LayerCache {
     return 'image'
   }
 
-  genSingleLayerStorePath(id: string) {
-    return path.join(this.getLayerCachesDir(), id, `layer.tar`)
+  genSingleLayerStorePath(tarFile: string) {
+    return path.join(this.getLayerCachesDir(), tarFile)
   }
 
   async generateRootHashFromManifest(): Promise<string> {
-    const manifest = await loadRawManifests(this.getUnpackedTarDir())
-    return crypto.createHash(`sha256`).update(manifest, `utf8`).digest(`hex`)
+    return await getManifestHash(this.getUnpackedTarDir())
   }
 
   async generateRootSaveKey(): Promise<string> {
@@ -294,18 +312,8 @@ class LayerCache {
     return this.restoredRootKey.replace(hash, `{hash}`).replace(/-root$/, ``)
   }
 
-  async getLayerTarFiles(): Promise<string[]> {
-    const getTarFilesFromManifest = (manifest: Manifest) => manifest.Layers
-
-    const tarFilesThatMayDuplicate = (await this.getManifests()).flatMap(getTarFilesFromManifest)
-    const tarFiles = [...new Set(tarFilesThatMayDuplicate)]
-    return tarFiles
-  }
-
-  async getLayerIds(): Promise<string[]> {
-    const layerIds = (await this.getLayerTarFiles()).map(path.dirname);
-    core.debug(JSON.stringify({ log: `getLayerIds`, layerIds }))
-    return layerIds
+  getIdOfLayerTarFile(layerTarFile: string): string {
+    return path.dirname(layerTarFile)
   }
 }
 

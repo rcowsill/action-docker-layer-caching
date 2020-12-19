@@ -31,6 +31,7 @@ const main = async () => {
 
   const imagesToSave = await imageDetector.getImagesShouldSave(alreadyExistingImages)
   core.info(`Saving images: ${JSON.stringify(imagesToSave)}`)
+
   const layerCache = new LayerCache(imagesToSave)
   layerCache.concurrency = parseInt(core.getInput(`concurrency`, { required: true }), 10)
 
