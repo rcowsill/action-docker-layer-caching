@@ -108,9 +108,19 @@ class LayerCache {
     const moveLayer = async (layer: string) => {
       const from = path.join(fromDir, layer)
       const to = path.join(toDir, layer)
-      core.debug(`Moving layer tar from ${from} to ${to}`)
-      await fs.mkdir(path.dirname(to), { recursive: true })
-      await fs.rename(from, to)
+
+      const sourceStat = await fs.lstat(from)
+      if (sourceStat.isSymbolicLink())
+      {
+        const target = await fs.readlink(from)
+        core.debug(`${layer} is symlink to ${target}, skipping move`)
+      }
+      else
+      {
+        core.debug(`Moving layer tar from ${from} to ${to}`)
+        await fs.mkdir(path.dirname(to), { recursive: true })
+        await fs.rename(from, to)
+      }
     }
     await Promise.all(layerTars.map(moveLayer))
   }
@@ -118,7 +128,7 @@ class LayerCache {
   private async storeLayers(): Promise<number[]> {
     const pool = new PromisePool(this.concurrency)
 
-    const result =  Promise.all(
+    const result = Promise.all(
       (await this.getLayerIds()).map(
         layerId => {
           return pool.open(() => this.storeSingleLayerBy(layerId))
@@ -146,6 +156,14 @@ class LayerCache {
 
   private async storeSingleLayerBy(layerId: string): Promise<number> {
     const path = this.genSingleLayerStorePath(layerId)
+
+    try {
+      await fs.access(path)
+    } catch (e) {
+      core.info(`Layer ${path} not present, skipping store.`)
+      return -1
+    }
+
     const key = await this.generateSingleLayerSaveKey(layerId)
 
     core.info(`Start storing layer cache: ${JSON.stringify({ layerId, key })}`)
@@ -211,7 +229,18 @@ class LayerCache {
     return true
   }
 
-  private async restoreSingleLayerBy(id: string): Promise<string> {
+  private async restoreSingleLayerBy(id: string): Promise<void> {
+    try {
+      const path = this.genSingleLayerTarPath(id)
+      core.debug(`Checking whether layer ${path} exists.`)
+      core.info(JSON.stringify(await fs.lstat(path)))
+      core.info(`Layer ${path} already present, skipping restore.`)
+      return 
+    } catch (e) {
+      core.info(e.message)
+      // Let the code below restore the missing file from cache
+    }
+
     const layerPath = this.genSingleLayerStorePath(id)
     const key = await this.recoverSingleLayerKey(id)
     const dir = path.dirname(layerPath)
@@ -224,8 +253,6 @@ class LayerCache {
     if (result == null) {
       throw new Error(`${LayerCache.ERROR_LAYER_CACHE_NOT_FOUND_STR}: ${JSON.stringify({ id })}`)
     }
-
-    return result
   }
 
   private async loadImageFromUnpacked() {
@@ -256,6 +283,10 @@ class LayerCache {
 
   genSingleLayerStorePath(id: string) {
     return path.join(this.getLayerCachesDir(), id, `layer.tar`)
+  }
+
+  genSingleLayerTarPath(id: string) {
+    return path.join(this.getUnpackedTarDir(), id, `layer.tar`)
   }
 
   async generateRootHashFromManifest(): Promise<string> {
