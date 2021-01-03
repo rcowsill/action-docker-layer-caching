@@ -60,8 +60,14 @@ jobs:
             include: [
               {
                 inspect_image: 'test_project_scratch',
+                os: 'ubuntu-latest',
                 prepare_command: 'docker-compose -f test_project/docker-compose.yml -p test_project pull',
                 build_command: 'docker-compose -f test_project/docker-compose.yml -p test_project build',
+              }, {
+                inspect_image: 'test_project_scratch',
+                os: 'windows-latest',
+                prepare_command: 'docker-compose -f test_project/windows/docker-compose.yml -p test_project pull',
+                build_command: 'docker-compose -f test_project/windows/docker-compose.yml -p test_project build',
               }, {
                 inspect_image: 'hello-world',
                 prepare_command: ':',
