@@ -18,7 +18,7 @@ RUN date /T > now14.txt
 RUN date /T > now15.txt
 RUN date /T > now16.txt
 
-FROM scratch
+FROM mcr.microsoft.com/windows/nanoserver:1809
 RUN mkdir app
 WORKDIR app
 COPY --from=data app/now16.txt data_stage_built_at.txt
