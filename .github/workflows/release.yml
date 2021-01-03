@@ -79,13 +79,7 @@ jobs:
               }, {
                 branch: process.env.GITHUB_REF.replace('refs/heads/', '')
               }
-            ],
-            exclude: [
-              {
-                inspect_image: 'test_project_scratch',
-                os: 'windows-latest',
-              },
-            ],
+            ]
           }
 
     outputs:
