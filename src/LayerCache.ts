@@ -26,12 +26,16 @@ class LayerCache {
   }
 
   async exec(command: string, args?: string[], options?: ExecOptions) {
+    await exec.exec(`sh -c`, [`df -BM`])
     const result = await exec.exec(command, args, options)
 
     return result
   }
 
   async store(key: string) {
+    core.debug(`store: started`)
+    await exec.exec(`sh -c`, [`df -BM`])
+
     this.unformattedSaveKey = key
 
     await this.saveImageAsUnpacked()
@@ -76,8 +80,10 @@ class LayerCache {
       this.getUnpackedTarDir(),
     ]
     core.info(`Start storing root cache, key: ${rootKey}, dir: ${paths}`)
+    await exec.exec(`sh -c`, [`df -BM`])
     const cacheId = await LayerCache.dismissError(cache.saveCache(paths, rootKey), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
     core.info(`Stored root cache, key: ${rootKey}, id: ${cacheId}`)
+    await exec.exec(`sh -c`, [`df -BM`])
     return cacheId !== -1 ? cacheId : undefined
   }
 
@@ -138,8 +144,10 @@ class LayerCache {
     const key = await this.generateSingleLayerSaveKey(layerId)
 
     core.info(`Start storing layer cache: ${JSON.stringify({ layerId, key })}`)
+    await exec.exec(`sh -c`, [`df -BM`])
     const cacheId = await LayerCache.dismissError(cache.saveCache([path], key), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
     core.info(`Stored layer cache: ${JSON.stringify({ key, cacheId })}`)
+    await exec.exec(`sh -c`, [`df -BM`])
 
     core.debug(JSON.stringify({ log: `storeSingleLayerBy`, layerId, path, key, cacheId}))
     return cacheId
@@ -148,6 +156,9 @@ class LayerCache {
   // ---
 
   async restore(primaryKey: string, restoreKeys?: string[]) {
+    core.debug(`restore: started`)
+    await exec.exec(`sh -c`, [`df -BM`])
+
     const restoredCacheKey = await this.restoreRoot(primaryKey, restoreKeys)
     if (restoredCacheKey === undefined) {
       core.info(`Root cache could not be found. aborting.`)
@@ -167,11 +178,13 @@ class LayerCache {
 
   private async restoreRoot(primaryKey: string, restoreKeys?: string[]): Promise<string | undefined> {
     core.debug(`Trying to restore root cache: ${ JSON.stringify({ restoreKeys, dir: this.getUnpackedTarDir() }) }`)
+    await exec.exec(`sh -c`, [`df -BM`])
     const restoredRootKey = await cache.restoreCache([this.getUnpackedTarDir()], primaryKey, restoreKeys)
     core.debug(`restoredRootKey: ${restoredRootKey}`)
     if (restoredRootKey === undefined) {
       return undefined
     }
+    await exec.exec(`sh -c`, [`df -BM`])
     this.restoredRootKey = restoredRootKey
 
     return restoredRootKey
@@ -206,14 +219,14 @@ class LayerCache {
     const dir = path.dirname(layerPath)
 
     core.debug(JSON.stringify({ log: `restoreSingleLayerBy`, id, layerPath, dir, key }))
-
+    await exec.exec(`sh -c`, [`df -BM`])
     await fs.mkdir(dir, { recursive: true })
     const result = await cache.restoreCache([layerPath], key)
 
     if (result == null) {
       throw new Error(`${LayerCache.ERROR_LAYER_CACHE_NOT_FOUND_STR}: ${JSON.stringify({ id })}`)
     }
-
+    await exec.exec(`sh -c`, [`df -BM`])
     return result
   }
 
@@ -222,7 +235,11 @@ class LayerCache {
   }
 
   async cleanUp() {
+    core.debug(`Cleanup: removing ${this.getImagesDir()}`)
+    await exec.exec(`sh -c`, [`df -BM`])
     await fs.rmdir(this.getImagesDir(), { recursive: true })
+    core.debug(`Cleanup: ${this.getImagesDir()} removed`)
+    await exec.exec(`sh -c`, [`df -BM`])
   }
 
   // ---
