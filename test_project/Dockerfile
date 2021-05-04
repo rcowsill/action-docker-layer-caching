@@ -1,4 +1,4 @@
-FROM alpine AS data
+FROM cypress/included:7.2.0 AS data
 RUN date > /now1.txt
 RUN date > /now2.txt
 RUN date > /now3.txt
