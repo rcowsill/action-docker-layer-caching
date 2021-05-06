@@ -81,10 +81,10 @@ class LayerCache {
     ]
     core.info(`Start storing root cache, key: ${rootKey}, dir: ${paths}`)
     await exec.exec(`sh -c`, [`df -BM`])
-    const cacheId = 0;//await LayerCache.dismissError(cache.saveCache(paths, rootKey), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
+    const cacheId = await LayerCache.dismissError(cache.saveCache(paths, rootKey), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
     core.info(`Stored root cache, key: ${rootKey}, id: ${cacheId}`)
     await exec.exec(`sh -c`, [`df -BM`])
-    return cacheId
+    return cacheId !== -1 ? cacheId : undefined
   }
 
   private async separateAllLayerCaches() {
@@ -145,7 +145,7 @@ class LayerCache {
 
     core.info(`Start storing layer cache: ${JSON.stringify({ layerId, key })}`)
     await exec.exec(`sh -c`, [`df -BM`])
-    const cacheId = 0;//await LayerCache.dismissError(cache.saveCache([path], key), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
+    const cacheId = await LayerCache.dismissError(cache.saveCache([path], key), LayerCache.ERROR_CACHE_ALREAD_EXISTS_STR, -1)
     core.info(`Stored layer cache: ${JSON.stringify({ key, cacheId })}`)
     await exec.exec(`sh -c`, [`df -BM`])
 
